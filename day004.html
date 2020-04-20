@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Day 4 : Malaysia COVID-19 Statistic</title>
+<link rel="stylesheet" href="styles/day4-style.css" />
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.16.0/bootstrap-table.min.js"></script>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+</head>
+
+<body>
+    <div class="jumbotron text-center bg-warning">
+        <h1>Day 4 : Malaysia COVID-19 Statistic</h1>
+        <h3><a href="index.html">Back to Project List</a></h3>
+    </div>
+    <div class="container-fluid bg">
+              
+      <div class="spinner-border" role="status" id="loading-ani">
+        <span class="sr-only">Loading...</span>
+      </div>
+      <h3>Daily Total Test </h3>
+      <div id="dailyTestContainer"></div>
+      <h3>Daily Total Cases</h3>
+      <div id="dailyNewCasesContainer"></div>
+      <h3>Percentage of total test (Positive)</h3>
+      <div id="percentageContainer"></div>
+       
+    </div>
+
+    <table id="table" >
+      <thead>
+          <tr>
+            <th data-field="lastUpdatedAtApify" id="date1">Datetime</th>
+              <th data-field="testedTotal">Tested Total</th>
+              <th data-field="testedPositive">Tested Positive</th>
+              <th data-field="recovered">Recovered</th>
+              <th data-field="inICU">In ICU</th>
+              <th data-field="deceased">Deceased</th>
+          </tr>
+      </thead>
+    </table>
+    <div class="alert alert-danger"><p class="">*The json have error on 7 April. The total tested less than 6 April</p></div>
+
+  <div class="pl-3">
+    <p>the data source from <a href="https://api.apify.com/v2/datasets/7Fdb90FMDLZir2ROo/items?format=json&clean=1">api.apify.com</a>  </p>
+  <p>You can get the source code from <a href="https://github.com/zpelechova/">here</a> to learn how to extract data from moh.gov.my</p></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){          
+           
+            const req = new XMLHttpRequest();
+            req.open("GET",'https://api.apify.com/v2/datasets/7Fdb90FMDLZir2ROo/items?format=json&clean=1',true);
+            req.send();
+            req.onload = function(){
+              const datasetRaw = JSON.parse(req.responseText);
+              var dataset1 = [];
+              var object1;
+              var previosDate;
+                for(i in datasetRaw)
+                {
+                  datasetRaw[i]["lastUpdatedAtApify"] = datasetRaw[i]["lastUpdatedAtApify"].substring(0,10);
+
+                  if(datasetRaw[i]["lastUpdatedAtApify"] === previosDate)
+                  {
+                    continue;
+                  }
+                  object1 = new Object();
+                  object1.lastUpdatedAtApify = datasetRaw[i]["lastUpdatedAtApify"];
+                  object1.testedTotal = datasetRaw[i]["testedTotal"];
+                  object1.testedPositive = datasetRaw[i]["testedPositive"];
+                  object1.recovered = datasetRaw[i]["recovered"];
+                  object1.inICU = datasetRaw[i]["inICU"];
+                  object1.deceased = datasetRaw[i]["deceased"];
+
+                  dataset1.push(object1);
+                  previosDate = datasetRaw[i]["lastUpdatedAtApify"];
+
+                }
+
+                var dataset2 = [];
+                var dataset3 = [];
+
+                var previosDayTested = 0;
+                var previosDayPositive = 0;
+                
+
+                var todayTested = 0;
+                var todayPositive = 0;
+
+                for(i in dataset1)
+                {
+                 
+
+                  var obj2 = new Object();
+                  var obj3 = new Object();
+                  obj2.date = dataset1[i]["lastUpdatedAtApify"].substring(5,10);
+                  obj3.date = dataset1[i]["lastUpdatedAtApify"].substring(5,10);
+                 
+                
+                    todayTested = dataset1[i]["testedTotal"] - previosDayTested;
+                    todayPositive = dataset1[i]["testedPositive"] - previosDayPositive;
+                  if(i>1)
+                  {
+                    obj2.percentage  = todayPositive / todayTested*100;
+                    obj3.todayTested  =  todayTested;
+                    obj3.todayPositive  = todayPositive ;
+                    if(obj2.percentage < 0)
+                    {
+                      obj2.percentage = 0;
+                    }
+
+                    if(obj3.todayTested < 0)
+                    {
+                      obj3.todayTested  = 0;
+                    }
+                    //console.log(obj3);
+                    dataset2.push(obj2);
+                    dataset3.push(obj3);
+                  }
+                  else{
+                    obj2.percentage = dataset1[i]["testedPositive"] / dataset1[i]["testedTotal"] *100;
+                  }
+
+                  
+                    previosDate = dataset1[i]["lastUpdatedAtApify"].substring(5,10); ;
+                    previosDayTested = dataset1[i]["testedTotal"] ;
+                    previosDayPositive = dataset1[i]["testedPositive"] ;
+
+                }
+                var $table = $('#table');
+                $('#table').bootstrapTable({
+                    data: dataset1
+                });
+
+                displayDailyTested(dataset3);
+                displayDailyNewCases(dataset3);
+                displayPercentage(dataset2);
+
+                var x = document.getElementsByClassName("loading-wrap");
+                x[0].style.display = "none";
+
+                var y = document.getElementById("loading-ani");
+                y.parentNode.removeChild(y);
+
+            };
+        });
+
+        function displayDailyTested(data)
+        {
+
+          console.log(data);
+            var margin  = {top: 20, right: 20, bottom: 100, left: 60},
+              width   = 900 - margin.left - margin.right,
+              height  = 400 - margin.top - margin.bottom,
+              x       = d3.scale.ordinal().rangeRoundBands([0,width], 0.5),
+              y       = d3.scale.linear().range([height,0]);
+
+              var xAxis   = d3.svg.axis()
+                    .scale(x)
+                    .orient("bottom");
+              var yAxis   = d3.svg.axis()
+                    .scale(y)
+                    .orient("left")
+                    .ticks(5)
+                    .innerTickSize(-width)
+                    .outerTickSize(0)
+                    .tickPadding(10);
+
+              var svg     = d3.select("#dailyTestContainer")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    x.domain(data.map(function (d)
+                    {
+                        return d.date;
+                    }));
+
+                    y.domain([0, d3.max(data, function (d)
+                    {
+                        return d.todayTested;
+                    })]);
+
+                    svg.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(0, " + height + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                        .style("text-anchor", "middle")
+                        .style("font-size", "0.6rem")
+                        .attr("dx", "-0.5em")
+                        .attr("dy", "-.55em")
+                        .attr("y", 30)
+                        .attr("transform", "rotate(0)" );
+
+                    svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+                        .append("text")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 5)
+                        .attr("dy", "0.8em")
+                        .attr("text-anchor", "end")
+                        .text(" positive percentage");
+
+                    svg.selectAll("bar")
+                        .data(data)
+                        .enter()
+                        .append("rect")
+                        .style("fill", "green")                      
+                        .attr("x", function(d)
+                        {
+                            return x(d.date);
+                        })
+                        .attr("width", x.rangeBand())
+                        .attr("y", function (d)
+                        {
+                            return y(d.todayTested);
+                        })                       
+                        .attr("height", function (d)
+                        {
+                            return height - y(d.todayTested);
+                        });
+
+          }
+
+          function displayDailyNewCases(data)
+        {
+            var margin  = {top: 20, right: 20, bottom: 100, left: 60},
+              width   = 900 - margin.left - margin.right,
+              height  = 400 - margin.top - margin.bottom,
+              x       = d3.scale.ordinal().rangeRoundBands([0,width], 0.5),
+              y       = d3.scale.linear().range([height,0]);
+
+              var xAxis   = d3.svg.axis()
+                    .scale(x)
+                    .orient("bottom");
+              var yAxis   = d3.svg.axis()
+                    .scale(y)
+                    .orient("left")
+                    .ticks(5)
+                    .innerTickSize(-width)
+                    .outerTickSize(0)
+                    .tickPadding(10);
+
+              var svg     = d3.select("#dailyNewCasesContainer")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    x.domain(data.map(function (d)
+                    {
+                        return d.date;
+                    }));
+
+                    y.domain([0, d3.max(data, function (d)
+                    {
+                        return d.todayPositive;
+                    })]);
+
+                    svg.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(0, " + height + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                        .style("text-anchor", "middle")
+                        .style("font-size", "0.6rem")
+                        .attr("dx", "-0.5em")
+                        .attr("dy", "-.55em")
+                        .attr("y", 30)
+                        .attr("transform", "rotate(0)" );
+
+                    svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+                        .append("text")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 5)
+                        .attr("dy", "0.8em")
+                        .attr("text-anchor", "end")
+                        .text(" positive percentage");
+
+                    svg.selectAll("bar")
+                        .data(data)
+                        .enter()
+                        .append("rect")
+                        .style("fill", "orange")                      
+                        .attr("x", function(d)
+                        {
+                            return x(d.date);
+                        })
+                        .attr("width", x.rangeBand())
+                        .attr("y", function (d)
+                        {
+                            return y(d.todayPositive);
+                        })                       
+                        .attr("height", function (d)
+                        {
+                            return height - y(d.todayPositive);
+                        });
+              
+
+          }
+
+        function displayPercentage(data)
+        {
+            var margin  = {top: 20, right: 20, bottom: 100, left: 60},
+              width   = 900 - margin.left - margin.right,
+              height  = 400 - margin.top - margin.bottom,
+              x       = d3.scale.ordinal().rangeRoundBands([0,width], 0.5),
+              y       = d3.scale.linear().range([height,0]);
+
+              var xAxis   = d3.svg.axis()
+                    .scale(x)
+                    .orient("bottom");
+              var yAxis   = d3.svg.axis()
+                    .scale(y)
+                    .orient("left")
+                    .ticks(5)
+                    .innerTickSize(-width)
+                    .outerTickSize(0)
+                    .tickPadding(10);
+
+              var svg     = d3.select("#percentageContainer")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    x.domain(data.map(function (d)
+                    {
+                        return d.date;
+                    }));
+
+                    y.domain([0, d3.max(data, function (d)
+                    {
+                        return d.percentage;
+                    })]);
+
+                    svg.append("g")
+                        .attr("class", "x axis")
+                        .attr("transform", "translate(0, " + height + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                        .style("text-anchor", "middle")
+                        .style("font-size", "0.6rem")
+                        .attr("dx", "-0.5em")
+                        .attr("dy", "-.55em")
+                        .attr("y", 30)
+                        .attr("transform", "rotate(0)" );
+
+                    svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+                        .append("text")
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 5)
+                        .attr("dy", "0.8em")
+                        .attr("text-anchor", "end")
+                        .text(" positive percentage");
+
+                    svg.selectAll("bar")
+                        .data(data)
+                        .enter()
+                        .append("rect")
+                        .style("fill", "blue")                      
+                        .attr("x", function(d)
+                        {
+                            return x(d.date);
+                        })
+                        .attr("width", x.rangeBand())
+                        .attr("y", function (d)
+                        {
+                            return y(d.percentage);
+                        })                       
+                        .attr("height", function (d)
+                        {
+                            return height - y(d.percentage);
+                        });
+
+          }
+      </script>
+</body>
+
+</html>
